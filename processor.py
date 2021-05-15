@@ -1,4 +1,4 @@
-from database_handler import *
+from database_handler import getPdataVal, queryByRfid,logVending
 import paho.mqtt.client as mqtt
 import threading
 
@@ -9,27 +9,28 @@ policy_limit=int(getPdataVal(1)) #From database	[1]	[ploicy_val]
 
 def checkDB(rfid):
 
-	result=getCurrentCountOfRfid(rfid)	
+	result=queryByRfid(rfid)	
 
-	if result.count() == 1:
-		current_count = result.first().curr_count
+	if result is not None:
+		current_count = result.curr_count
 		individual_remaining = policy_limit - current_count
 
-		print('[INF] Count of ',result.first().name,' is : ',current_count)
+		print('[INF_proc] Count of ',result.name,' is : ',current_count)
 
-		if individual_remaining >= 0:
-			print('[INF] ',result.first().name, 
+		if current_count < policy_limit:
+			print('[INF_proc] ',result.name, 
 			' have ',individual_remaining,
 			' remaining now in this month. Please collect your pad')
 			
-			client.publish('spvm/vending_cmd',str(rfid))
+			client.publish('spvm/vending_true',str(rfid))
 		
-		elif individual_remaining < 0:
-			print('[INF] ',result.first().name,'have reached limit, contact administration') 
+		elif current_count >= policy_limit:
+			print('[INF_proc] ',result.name,'have reached limit, contact administration\n') 
 
+			client.publish('spvm/vending_false',str(rfid))
 
 	else:
-		print('[ERR] No record found with RFID : ',rfid)
+		print('[ERR_proc] No record found with RFID : ',rfid)
 
 def on_connect(client,userdata,flags,rc):
 	if rc==0:
@@ -37,7 +38,7 @@ def on_connect(client,userdata,flags,rc):
 		client.subscribe('spvm/rfid')
 		client.subscribe('spvm/vending_response')
 	else:
-		print('[ERR] Not connected : ',rc)
+		print('[ERR_proc] Not connected : ',rc)
 
 def on_message(client, userdata, msg):
 	if msg.topic == 'spvm/rfid':
@@ -53,7 +54,7 @@ client.on_connect=on_connect
 client.on_message=on_message
 # client.on_log=on_log
 
-print('[INF] Connecting to broker : ',broker)
+print('[INF_proc] Connecting to broker : ',broker)
 client.connect(broker)
 # client.loop_start()
 

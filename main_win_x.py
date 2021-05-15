@@ -11,21 +11,50 @@ from layout.main_win_layout import Ui_Form
 
 import paho.mqtt.client as mqtt
 
+from database_handler import queryByRfid,getPdataVal
+
+
+
+def updateStatusLabel(idsts):
+    policy_limit=int(getPdataVal(1))  #From database	[1]	[ploicy_val]
+    rfid,sts=idsts
+    qry = queryByRfid(rfid)
+    nam = qry.name
+    remaining= policy_limit-qry.curr_count
+    if sts:
+        ui.lbl_sts.setText('Vending for '+nam+str(remaining)+' remaining')
+        time.sleep(2)
+        ui.lbl_sts.setText('Ready for vending')
+
+    if not sts:
+        ui.lbl_sts.setText('Cannot vend for '+nam+str(remaining)+' remaining')
+        time.sleep(2)
+        ui.lbl_sts.setText('Ready for vending')
+
+################################### MQTT ###################################
+
 broker='localhost'
 client=mqtt.Client('spvm_gui')
 
 # def on_log(client,userdata,level,buf):
 #     print('log: '+buf)
-
 def on_connect(client,userdata,flags,rc):
     if rc==0:
         print('Connected OK')
-        client.subscribe('gui_msg')
+        client.subscribe('spvm/vending_false')
+        client.subscribe('spvm/vending_true')
     else:
         print('Not connected : ',rc)
 
 def on_message(client, userdata, msg):
-    print('Got message')
+
+    if msg.topic=='spvm/vending_true':
+        rfid=msg.payload.decode()
+        updateStatusLabel((rfid,True))
+    
+    elif msg.topic=='spvm/vending_false':
+        rfid=msg.payload.decode()
+        updateStatusLabel((rfid,False))
 
 client.on_connect=on_connect
 client.on_message=on_message
@@ -35,6 +64,8 @@ print('Connecting to broker : ',broker)
 client.connect(broker)
 client.loop_start()
 
+################################### MQTT ###################################
+
 def getInput():
     while True:
         recorded = keyboard.record(until='enter')
@@ -43,9 +74,9 @@ def getInput():
         rf_id=next(string)
         client.publish('spvm/rfid',str(rf_id))
         # print('Tag ID is : ',rf_id)
-        ui.lbl_sts.setText('Updating...')
-        time.sleep(0.5)
-        ui.lbl_sts.setText(rf_id)
+        # ui.lbl_sts.setText('Updating...')
+        # time.sleep(0.5)
+        # ui.lbl_sts.setText(rf_id)
 
 def updateDateTime():
     today=qtc.QDate.currentDate().toString(qtc.Qt.ISODate)
@@ -57,8 +88,10 @@ def updateDateTime():
     ui.lbl_time.setText(now)
     ui.lbl_date.setText(today)
 
+################################### Threads ###################################
 rfid_thr = threading.Thread(target=getInput,daemon=True)
 rfid_thr.start()
+################################### Threads ###################################
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
@@ -78,6 +111,6 @@ if __name__ == "__main__":
     date_time_timer.timeout.connect(updateDateTime)
     date_time_timer.start(999)
 
-    Form.showFullScreen()
-    # Form.show()
+    # Form.showFullScreen()
+    Form.show()
     sys.exit(app.exec_())

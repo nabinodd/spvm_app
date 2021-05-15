@@ -1,8 +1,10 @@
-from sqlalchemy import create_engine, Column, Integer, Text
+from sqlalchemy import create_engine, Column, Integer, Text, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.log import echo_property
 from sqlalchemy.orm import session, sessionmaker
 from datetime import datetime
+
+
 
 engine = create_engine('sqlite:///database.db')
 Session = sessionmaker(bind=engine)
@@ -44,13 +46,27 @@ class Pdata(Base):
 def getPdataVal(id):
 	return session.query(Pdata).get(id).s_val
 
-def getCurrentCountOfRfid(rfid):
-	return session.query(User).filter_by(serial_num=rfid)
+def queryByRfid(rfid):
+	result = session.query(User).filter_by(serial_num=rfid)
+	if result.count() == 1:
+		return result.first()
+	else:
+		print('[ERR_dbh] Cannot return query....')
+		return None
 
 def logVending(rfid):
 	now=datetime.now()
 	timestampz=int(datetime.timestamp(now))
 	logx=Log(serial_num=rfid,timestamp=timestampz)
 	session.add(logx)
+
+	q=queryByRfid(rfid)
+	db_curr_cnt_val=None
+	if q is not None:
+		db_curr_cnt_val = q.curr_count
+		q.curr_count = db_curr_cnt_val+1
+
+		print('[INF_dbh] ',db_curr_cnt_val,' Incremented successfully')
+
 	session.commit()
-	print('[INF] Data entered successfully for RFID : ',rfid,'\n')
+	print('[INF_dbh] Data entered successfully for RFID : ',rfid,'\n')

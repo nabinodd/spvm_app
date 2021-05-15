@@ -16,27 +16,27 @@ client=mqtt.Client('spvm_actuactors')
 
 def on_connect(client,userdata,flags,rc):
 	if rc==0:
-		print('Connected OK')
-		client.subscribe('spvm/vending_cmd')
+		print('[INF_actu] Connected OK')
+		client.subscribe('spvm/vending_true')
 	else:
-		print('[ERROR] Not connected : ',rc)
+		print('[ERR_actu] Not connected : ',rc)
 
 def on_message(client, userdata, msg):
-	if msg.topic=='spvm/vending_cmd':
+	if msg.topic=='spvm/vending_true':
 		rfid=msg.payload.decode()
 		threading.Thread(target=runMotor(rfid),daemon=True).start()
 
 def runMotor(rfid):
-	print('[INF] Vending from the machine')
+	print('[INF_actu] Vending from the machine')
 	time.sleep(2)
 	client.publish('spvm/vending_response',rfid)
-	print('[OK] Vending complete\n')
+	print('[OK_actu] Vending complete\n')
 
 client.on_connect=on_connect
 client.on_message=on_message
 # client.on_log=on_log
 
-print('[INF] Connecting to broker : ',broker)
+print('[INF_actu] Connecting to broker : ',broker)
 client.connect(broker)
 # client.loop_start()
 client.loop_forever()
