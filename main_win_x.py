@@ -14,23 +14,28 @@ import paho.mqtt.client as mqtt
 from database_handler import queryByRfid,getPdataVal
 
 
+block_input=False
 
 def updateStatusLabel(idsts):
+    global block_input
+    block_input=True
     policy_limit=int(getPdataVal(1))  #From database	[1]	[ploicy_val]
     rfid,sts=idsts
     qry = queryByRfid(rfid)
     nam = qry.name
-    remaining= policy_limit-qry.curr_count
+    cu_count = int(qry.curr_count)
+    remaining = (policy_limit - cu_count)
+    print('Remaininjg = ',remaining)
     if sts:
-        ui.lbl_sts.setText('Vending for '+nam+str(remaining)+' remaining')
-        time.sleep(2)
+        ui.lbl_sts.setText('Vending for '+nam+', '+str(remaining)+' remaining')
+        time.sleep(3)
         ui.lbl_sts.setText('Ready for vending')
 
     if not sts:
-        ui.lbl_sts.setText('Cannot vend for '+nam+str(remaining)+' remaining')
-        time.sleep(2)
+        ui.lbl_sts.setText('Cannot vend for '+nam+', '+str(remaining)+' remaining')
+        time.sleep(3)
         ui.lbl_sts.setText('Ready for vending')
-
+    block_input=False
 ################################### MQTT ###################################
 
 broker='localhost'
@@ -51,10 +56,12 @@ def on_message(client, userdata, msg):
     if msg.topic=='spvm/vending_true':
         rfid=msg.payload.decode()
         updateStatusLabel((rfid,True))
+        # threading.Thread(target=updateStatusLabel((rfid,True)),daemon=True).start()
     
     elif msg.topic=='spvm/vending_false':
         rfid=msg.payload.decode()
         updateStatusLabel((rfid,False))
+        # threading.Thread(target=updateStatusLabel((rfid,False)),daemon=True).start()
 
 client.on_connect=on_connect
 client.on_message=on_message
@@ -68,15 +75,16 @@ client.loop_start()
 
 def getInput():
     while True:
-        recorded = keyboard.record(until='enter')
-        time.sleep(1)
-        string=keyboard.get_typed_strings(recorded)
-        rf_id=next(string)
-        client.publish('spvm/rfid',str(rf_id))
-        # print('Tag ID is : ',rf_id)
-        # ui.lbl_sts.setText('Updating...')
-        # time.sleep(0.5)
-        # ui.lbl_sts.setText(rf_id)
+        if not block_input:
+            recorded = keyboard.record(until='enter')
+            string=keyboard.get_typed_strings(recorded)
+            rf_id=next(string)
+            client.publish('spvm/rfid',str(rf_id))
+            # print('Tag ID is : ',rf_id)
+            # ui.lbl_sts.setText('Updating...')
+            # time.sleep(0.5)
+            # ui.lbl_sts.setText(rf_id)
+        time.sleep(0.5)
 
 def updateDateTime():
     today=qtc.QDate.currentDate().toString(qtc.Qt.ISODate)

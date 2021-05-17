@@ -1,8 +1,9 @@
+from datetime import datetime
+
 from sqlalchemy import create_engine, Column, Integer, Text, update
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.log import echo_property
 from sqlalchemy.orm import session, sessionmaker
-from datetime import datetime
+
 
 
 
@@ -55,18 +56,16 @@ def queryByRfid(rfid):
 		return None
 
 def logVending(rfid):
-	now=datetime.now()
-	timestampz=int(datetime.timestamp(now))
-	logx=Log(serial_num=rfid,timestamp=timestampz)
-	session.add(logx)
-
 	q=queryByRfid(rfid)
 	db_curr_cnt_val=None
 	if q is not None:
-		db_curr_cnt_val = q.curr_count
-		q.curr_count = db_curr_cnt_val+1
-
+		db_curr_cnt_val = int(q.curr_count)
+		q.curr_count = int(db_curr_cnt_val+1)
+		now=datetime.now()
+		timestampz=int(datetime.timestamp(now))
+		logx=Log(serial_num=rfid,timestamp=timestampz)
+		session.add(logx)
+		session.commit()
 		print('[INF_dbh] ',db_curr_cnt_val,' Incremented successfully')
-
-	session.commit()
-	print('[INF_dbh] Data entered successfully for RFID : ',rfid,'\n')
+		
+		print('[INF_dbh] Data entered successfully for RFID : ',rfid,'\n')
